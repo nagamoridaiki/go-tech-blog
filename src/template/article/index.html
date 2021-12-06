@@ -1,0 +1,20 @@
+{% extends "../layout.html" %}
+
+{% block css %}
+<link rel="stylesheet" href="/css/article/index.css" />
+{% endblock %}
+
+{% block js %}
+<script src="/js/article/index.js"></script>
+{% endblock %}
+
+{% block content %}
+<p>{{ Message }}</p>
+<p>{{ Now }}</p>
+<h2>記事一覧</h2>
+  <ul>
+    {% for article in Articles %}
+    <li>{{ article.ID }}. {{ article.Title }}</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
