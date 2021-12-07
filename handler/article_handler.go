@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,18 +13,24 @@ import (
 
 // ArticleIndex ...
 func ArticleIndex(c echo.Context) error {
-	// 記事データの一覧を取得する
-	articles, err := repository.ArticleList()
+	// リポジトリの処理を呼び出して記事の一覧データを取得します。
+	articles, err := repository.ArticleListByCursor(0)
+
+	// エラーが発生した場合
 	if err != nil {
-		log.Println(err.Error())
+		// エラー内容をサーバーのログに出力します。
+		c.Logger().Error(err.Error())
+
+		// クライアントにステータスコード 500 でレスポンスを返します。
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// テンプレートに渡すデータを map に格納します。
 	data := map[string]interface{}{
-		"Message":  "Article Index Updated",
-		"Now":      time.Now(),
-		"Articles": articles, // 記事データをテンプレートエンジンに渡す
+		"Articles": articles,
 	}
+
+	// テンプレートファイルとデータを指定して HTML を生成し、クライアントに返却します
 	return render(c, "article/index.html", data)
 }
 
