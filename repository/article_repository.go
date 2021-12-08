@@ -88,3 +88,64 @@ func ArticleDelete(id int) error {
 	// エラーがない場合はコミットします。
 	return tx.Commit()
 }
+
+// ArticleGetByID ...
+func ArticleGetByID(id int) (*model.Article, error) {
+	// クエリ文字列を生成します。
+	query := `SELECT *
+	FROM articles
+	WHERE id = ?;`
+
+	// クエリ結果を格納する変数を宣言します。
+	// 複数件取得の場合はスライスでしたが、一件取得の場合は構造体になります。
+	var article model.Article
+
+	// 結果を格納する構造体、クエリ文字列、パラメータを指定して SQL を実行します。
+	// 複数件の取得の場合は db.Select() でしたが、一件取得の場合は db.Get() になります。
+	if err := db.Get(&article, query, id); err != nil {
+		// エラーが発生した場合はエラーを返却します。
+		return nil, err
+	}
+
+	// エラーがない場合は記事データを返却します。
+	return &article, nil
+}
+
+// ArticleUpdate ...
+func ArticleUpdate(article *model.Article) (sql.Result, error) {
+	// 現在日時を取得します
+	now := time.Now()
+
+	// 構造体に現在日時を設定します。
+	article.Updated = now
+
+	// クエリ文字列を生成します。
+	query := `UPDATE articles
+	SET title = :title,
+		body = :body,
+		updated = :updated
+	WHERE id = :id;`
+
+	// トランザクションを開始します。
+	tx := db.MustBegin()
+
+	// クエリ文字列と引数で渡ってきた構造体を指定して、SQL を実行します。
+	// クエリ文字列内の :title, :body, :id には、
+	// 第 2 引数の Article 構造体の Title, Body, ID が bind されます。
+	// 構造体に db タグで指定した値が紐付けされます。
+	res, err := tx.NamedExec(query, article)
+
+	if err != nil {
+		// エラーが発生した場合はロールバックします。
+		tx.Rollback()
+
+		// エラーを返却します。
+		return nil, err
+	}
+
+	// エラーがない場合はコミットします。
+	tx.Commit()
+
+	// SQL の実行結果を返却します。
+	return res, nil
+}

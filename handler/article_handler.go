@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"go-tech-blog/model"
@@ -60,27 +61,53 @@ func ArticleNew(c echo.Context) error {
 
 // ArticleShow ...
 func ArticleShow(c echo.Context) error {
+	// パスパラメータから記事 ID を取得します。
+	// 文字列型で取得されるので、strconv パッケージを利用して数値型にキャストしています。
 	id, _ := strconv.Atoi(c.Param("articleID"))
 
-	data := map[string]interface{}{
-		"Message": "Article Show",
-		"Now":     time.Now(),
-		"ID":      id,
+	// 記事データを取得します。
+	article, err := repository.ArticleGetByID(id)
+
+	if err != nil {
+		// エラー内容をサーバーのログに出力します。
+		c.Logger().Error(err.Error())
+
+		// ステータスコード 500 でレスポンスを返却します。
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// テンプレートに渡すデータを map に格納します。
+	data := map[string]interface{}{
+		"Article": article,
+	}
+
+	// テンプレートファイルとデータを指定して HTML を生成し、クライアントに返却します。
 	return render(c, "article/show.html", data)
 }
 
 // ArticleEdit ...
 func ArticleEdit(c echo.Context) error {
+	// パスパラメータから記事 ID を取得します。
+	// 文字列型で取得されるので、strconv パッケージを利用して数値型にキャストしています。
 	id, _ := strconv.Atoi(c.Param("articleID"))
 
-	data := map[string]interface{}{
-		"Message": "Article Edit",
-		"Now":     time.Now(),
-		"ID":      id,
+	// 編集フォームの初期値として表示するために記事データを取得します。
+	article, err := repository.ArticleGetByID(id)
+
+	if err != nil {
+		// エラー内容をサーバーのログに出力します。
+		c.Logger().Error(err.Error())
+
+		// ステータスコード 500 でレスポンスを返却します。
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// テンプレートに渡すデータを map に格納します。
+	data := map[string]interface{}{
+		"Article": article,
+	}
+
+	// テンプレートファイルとデータを指定して HTML を生成し、クライアントに返却します。
 	return render(c, "article/edit.html", data)
 }
 
@@ -186,4 +213,73 @@ func ArticleList(c echo.Context) error {
 	// エラーがない場合は、ステータスコード 200 でレスポンスを返します。
 	// JSON 形式で返却するため、c.HTMLBlob() ではなく c.JSON() を呼び出しています。
 	return c.JSON(http.StatusOK, articles)
+}
+
+// ArticleUpdateOutput ...
+type ArticleUpdateOutput struct {
+	Article          *model.Article
+	Message          string
+	ValidationErrors []string
+}
+
+// ArticleUpdate ...
+func ArticleUpdate(c echo.Context) error {
+	// リクエスト送信元のパスを取得します。
+	ref := c.Request().Referer()
+
+	// リクエスト送信元のパスから記事 ID を抽出します。
+	refID := strings.Split(ref, "/")[4]
+
+	// リクエスト URL のパスパラメータから記事 ID を抽出します。
+	reqID := c.Param("articleID")
+
+	// 編集画面で表示している記事と更新しようとしている記事が異なる場合は、
+	// 更新処理をせずに 400 エラーを返却します。
+	if reqID != refID {
+		return c.JSON(http.StatusBadRequest, "")
+	}
+
+	// フォームで送信される記事データを格納する構造体を宣言します。
+	var article model.Article
+
+	// レスポンスするデータの構造体を宣言します。
+	var out ArticleUpdateOutput
+
+	// フォームで送信されたデータを変数に格納します。
+	if err := c.Bind(&article); err != nil {
+		// リクエストのパラメータの解釈に失敗した場合は 400 エラーを返却します。
+		return c.JSON(http.StatusBadRequest, out)
+	}
+
+	// 入力値のチェック（バリデーションチェック）を行います。
+	if err := c.Validate(&article); err != nil {
+		// エラー内容をレスポンスのフィールドに格納します。
+		out.ValidationErrors = article.ValidationErrors(err)
+
+		// 解釈できたパラメータが不正な値の場合は 422 エラーを返却します。
+		return c.JSON(http.StatusUnprocessableEntity, out)
+	}
+
+	// 文字列型の ID を数値型にキャストします。
+	articleID, _ := strconv.Atoi(reqID)
+
+	// フォームデータを格納した構造体に ID をセットします。
+	article.ID = articleID
+
+	// 記事を更新する処理を呼び出します。
+	_, err := repository.ArticleUpdate(&article)
+
+	if err != nil {
+		// レスポンスの構造体にエラー内容をセットします。
+		out.Message = err.Error()
+
+		// リクエスト自体は正しいにも関わらずサーバー側で処理が失敗した場合は 500 エラーを返却します。
+		return c.JSON(http.StatusInternalServerError, out)
+	}
+
+	// レスポンスの構造体に記事データをセットします。
+	out.Article = &article
+
+	// 処理成功時はステータスコード 200 でレスポンスを返却します。
+	return c.JSON(http.StatusOK, out)
 }
