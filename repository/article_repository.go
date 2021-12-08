@@ -110,3 +110,42 @@ func ArticleGetByID(id int) (*model.Article, error) {
 	// エラーがない場合は記事データを返却します。
 	return &article, nil
 }
+
+// ArticleUpdate ...
+func ArticleUpdate(article *model.Article) (sql.Result, error) {
+	// 現在日時を取得します
+	now := time.Now()
+
+	// 構造体に現在日時を設定します。
+	article.Updated = now
+
+	// クエリ文字列を生成します。
+	query := `UPDATE articles
+	SET title = :title,
+		body = :body,
+		updated = :updated
+	WHERE id = :id;`
+
+	// トランザクションを開始します。
+	tx := db.MustBegin()
+
+	// クエリ文字列と引数で渡ってきた構造体を指定して、SQL を実行します。
+	// クエリ文字列内の :title, :body, :id には、
+	// 第 2 引数の Article 構造体の Title, Body, ID が bind されます。
+	// 構造体に db タグで指定した値が紐付けされます。
+	res, err := tx.NamedExec(query, article)
+
+	if err != nil {
+		// エラーが発生した場合はロールバックします。
+		tx.Rollback()
+
+		// エラーを返却します。
+		return nil, err
+	}
+
+	// エラーがない場合はコミットします。
+	tx.Commit()
+
+	// SQL の実行結果を返却します。
+	return res, nil
+}
