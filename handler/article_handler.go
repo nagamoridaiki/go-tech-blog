@@ -60,14 +60,27 @@ func ArticleNew(c echo.Context) error {
 
 // ArticleShow ...
 func ArticleShow(c echo.Context) error {
+	// パスパラメータから記事 ID を取得します。
+	// 文字列型で取得されるので、strconv パッケージを利用して数値型にキャストしています。
 	id, _ := strconv.Atoi(c.Param("articleID"))
 
-	data := map[string]interface{}{
-		"Message": "Article Show",
-		"Now":     time.Now(),
-		"ID":      id,
+	// 記事データを取得します。
+	article, err := repository.ArticleGetByID(id)
+
+	if err != nil {
+		// エラー内容をサーバーのログに出力します。
+		c.Logger().Error(err.Error())
+
+		// ステータスコード 500 でレスポンスを返却します。
+		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// テンプレートに渡すデータを map に格納します。
+	data := map[string]interface{}{
+		"Article": article,
+	}
+
+	// テンプレートファイルとデータを指定して HTML を生成し、クライアントに返却します。
 	return render(c, "article/show.html", data)
 }
 
