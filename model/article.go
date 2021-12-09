@@ -8,11 +8,15 @@ import (
 
 // Article ...
 type Article struct {
-	ID      int       `db:"id" form:"id" json:"id"`
-	Title   string    `db:"title" form:"title" validate:"required,max=50" json:"title"`
-	Body    string    `db:"body" form:"body" validate:"required" json:"body"`
-	Created time.Time `db:"created" json:"created"`
-	Updated time.Time `db:"updated" json:"updated"`
+	ID         int       `db:"id" form:"id" json:"id"`
+	Title      string    `db:"title" form:"title" validate:"required,max=50" json:"title"`
+	Body       string    `db:"body" form:"body" validate:"required" json:"body"`
+	Created    time.Time `db:"created" json:"created"`
+	Updated    time.Time `db:"updated" json:"updated"`
+	WriterID   int       `db:"writer_id"`
+	WriterName string    `db:"writer_name"`
+	Writer     *Writer   `db:"writer"`
+	Tags       []*Tag    `db:"-"`
 }
 
 // ValidationErrors ...
