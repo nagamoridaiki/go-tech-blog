@@ -50,6 +50,8 @@ func main() {
 	auth.DELETE("/api/articles/:articleID", handler.ArticleDelete) // 削除
 	auth.PATCH("/api/articles/:articleID", handler.ArticleUpdate)  // 更新
 
+	e.GET("/test", handler.Test)
+
 	e.Logger.Fatal(e.Start(":8080"))
 }
 
