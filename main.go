@@ -14,6 +14,9 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 )
 
+var authUser = os.Getenv("AUTH_USER")
+var authPassword = os.Getenv("AUTH_PASSWORD")
+
 var db *sqlx.DB
 var e = createMux()
 
@@ -21,23 +24,31 @@ func main() {
 	db = connectDB()
 	repository.SetDB(db)
 
+	// ルーティングのグループを作成します。
+	auth := e.Group("")
+
+	// 作成したルーティンググループに対して Basic 認証のミドルウェアを追加します。
+	auth.Use(basicAuth())
+
+	// 認証が必要なルーティングに対しては auth グループを利用します。
+
 	// TOP ページに記事の一覧を表示します。
 	e.GET("/", handler.ArticleIndex)
 
 	// 記事に関するページは "/articles" で開始するようにします。
 	// 記事一覧画面には "/" と "/articles" の両方でアクセスできるようにします。
 	// パスパラメータの ":id" も ":articleID" と明確にしています。
-	e.GET("/articles", handler.ArticleIndex)                // 一覧画面
-	e.GET("/articles/new", handler.ArticleNew)              // 新規作成画面
-	e.GET("/articles/:articleID", handler.ArticleShow)      // 詳細画面
-	e.GET("/articles/:articleID/edit", handler.ArticleEdit) // 編集画面
+	e.GET("/articles", handler.ArticleIndex)                   // 一覧画面
+	auth.GET("/articles/new", handler.ArticleNew)              // 新規作成画面
+	e.GET("/articles/:articleID", handler.ArticleShow)         // 詳細画面
+	auth.GET("/articles/:articleID/edit", handler.ArticleEdit) // 編集画面
 
 	// HTML ではなく JSON を返却する処理は "/api" で開始するようにします。
 	// 記事に関する処理なので "/articles" を続けます。
-	e.GET("/api/articles", handler.ArticleList)                 // 一覧
-	e.POST("/api/articles", handler.ArticleCreate)              // 作成
-	e.DELETE("/api/articles/:articleID", handler.ArticleDelete) // 削除
-	e.PATCH("/api/articles/:articleID", handler.ArticleUpdate)  // 更新
+	e.GET("/api/articles", handler.ArticleList)                    // 一覧
+	auth.POST("/api/articles", handler.ArticleCreate)              // 作成
+	auth.DELETE("/api/articles/:articleID", handler.ArticleDelete) // 削除
+	auth.PATCH("/api/articles/:articleID", handler.ArticleUpdate)  // 更新
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
@@ -79,4 +90,24 @@ type CustomValidator struct {
 // Validate ...
 func (cv *CustomValidator) Validate(i interface{}) error {
 	return cv.validator.Struct(i)
+}
+
+func basicAuth() echo.MiddlewareFunc {
+	var basicAuthValidator middleware.BasicAuthValidator
+
+	// basicAuthValidator という変数に、認証成功・認証失敗を判定する関数を代入します。
+	basicAuthValidator = func(username, password string, c echo.Context) (bool, error) {
+		// ユーザー名が "joe"、パスワードが "secret" の場合認証に成功します。
+		if username == authUser && password == authPassword {
+			return true, nil
+		}
+		return false, nil
+	}
+
+	// middleware パッケージの BasicAuth() 関数は、
+	// Basic 認証判定用の関数を引数に取り、MiddlewareFunc 型を返却します。
+	middlewareFunc := middleware.BasicAuth(basicAuthValidator)
+
+	// MiddlewareFunc 型を返却します。
+	return middlewareFunc
 }
